@@ -10,6 +10,7 @@ import {
   PhoneOff,
   Flag,
   Ban,
+  MessageSquare,
 } from "lucide-react";
 
 interface ChatControlsProps {
@@ -17,11 +18,13 @@ interface ChatControlsProps {
   isSearching: boolean;
   isCameraOn: boolean;
   isMicOn: boolean;
+  isChatOpen: boolean;
   onStartChat: () => void;
   onSkip: () => void;
   onDisconnect: () => void;
   onToggleCamera: () => void;
   onToggleMic: () => void;
+  onToggleChat: () => void;
   onReport: () => void;
   onBlock: () => void;
 }
@@ -31,11 +34,13 @@ const ChatControls = ({
   isSearching,
   isCameraOn,
   isMicOn,
+  isChatOpen,
   onStartChat,
   onSkip,
   onDisconnect,
   onToggleCamera,
   onToggleMic,
+  onToggleChat,
   onReport,
   onBlock,
 }: ChatControlsProps) => {
@@ -62,6 +67,14 @@ const ChatControls = ({
           className={`rounded-full w-12 h-12 ${!isMicOn ? "bg-destructive/20 border-destructive/50 text-destructive" : ""}`}
         >
           {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={onToggleChat}
+          className={`rounded-full w-12 h-12 ${isChatOpen ? "bg-primary/20 border-primary/50 text-primary" : ""}`}
+        >
+          <MessageSquare className="w-5 h-5" />
         </Button>
       </div>
 

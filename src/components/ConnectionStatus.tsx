@@ -13,7 +13,7 @@ const statusConfig = {
   disconnected: { color: "text-destructive", icon: WifiOff, label: "Disconnected" },
 };
 
-const ConnectionStatus = ({ status, onlineCount = 0 }: ConnectionStatusProps) => {
+const ConnectionStatus = ({ status }: ConnectionStatusProps) => {
   const config = statusConfig[status];
   const Icon = config.icon;
 
@@ -27,13 +27,6 @@ const ConnectionStatus = ({ status, onlineCount = 0 }: ConnectionStatusProps) =>
         <Icon className="w-4 h-4" />
         <span className="font-mono text-xs">{config.label}</span>
       </motion.div>
-
-      {onlineCount > 0 && (
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Users className="w-4 h-4" />
-          <span className="font-mono text-xs">{onlineCount.toLocaleString()} online</span>
-        </div>
-      )}
     </div>
   );
 };
