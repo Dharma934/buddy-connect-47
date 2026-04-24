@@ -36,7 +36,12 @@ const Index = () => {
   const [inputValue, setInputValue] = useState("");
   const localStreamRef = useRef<MediaStream | null>(null);
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
+  const currentRoomRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    currentRoomRef.current = currentRoom;
+  }, [currentRoom]);
 
   const addMessage = useCallback((text: string, sender: "me" | "stranger" | "system") => {
     setMessages((prev) => [
@@ -132,19 +137,20 @@ const Index = () => {
         const otherUsers = Object.keys(state).filter((id) => id !== MY_ID);
 
         if (otherUsers.length > 0) {
-          // Found someone! Pick the first one and create a room
+          // Found someone! Deterministically choose who initiates based on ID
           const partnerId = otherUsers[0];
           const roomId = [MY_ID, partnerId].sort().join("-");
+          const isInitiator = MY_ID < partnerId;
 
           lobby.send({
             type: "broadcast",
             event: "match-found",
-            payload: { roomId, users: [MY_ID, partnerId], initiator: MY_ID },
+            payload: { roomId, users: [MY_ID, partnerId], initiator: isInitiator ? MY_ID : partnerId },
           });
         }
       })
       .on("broadcast", { event: "match-found" }, ({ payload }) => {
-        if (payload.users.includes(MY_ID)) {
+        if (payload.users.includes(MY_ID) && !currentRoomRef.current) {
           setCurrentRoom(payload.roomId);
           const isOfferer = payload.initiator === MY_ID;
           startConnection(payload.roomId, isOfferer);

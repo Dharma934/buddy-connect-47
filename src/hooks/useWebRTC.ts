@@ -13,13 +13,15 @@ export const useWebRTC = ({ localStream, onRemoteStream, onMessage, onConnection
     const dataChannel = useRef<RTCDataChannel | null>(null);
     const [roomName, setRoomName] = useState<string | null>(null);
     const [isInitiator, setIsInitiator] = useState(false);
+    const roomNameRef = useRef<string | null>(null);
+    const isInitiatorRef = useRef(false);
 
-    const setupDataChannel = (channel: RTCDataChannel) => {
+    const setupDataChannel = useCallback((channel: RTCDataChannel) => {
         channel.onmessage = (event) => {
             onMessage(event.data);
         };
         dataChannel.current = channel;
-    };
+    }, [onMessage]);
 
     const createPeerConnection = useCallback(() => {
         const pc = new RTCPeerConnection({
@@ -30,8 +32,8 @@ export const useWebRTC = ({ localStream, onRemoteStream, onMessage, onConnection
         });
 
         pc.onicecandidate = (event) => {
-            if (event.candidate && roomName) {
-                supabase.channel(roomName).send({
+            if (event.candidate && roomNameRef.current) {
+                supabase.channel(roomNameRef.current).send({
                     type: "broadcast",
                     event: "ice-candidate",
                     payload: event.candidate,
@@ -63,47 +65,49 @@ export const useWebRTC = ({ localStream, onRemoteStream, onMessage, onConnection
 
         peerConnection.current = pc;
         return pc;
-    }, [localStream, onRemoteStream, onConnectionStateChange, roomName]);
+    }, [localStream, onRemoteStream, onConnectionStateChange, setupDataChannel]);
 
-    const handleOffer = async (offer: RTCSessionDescriptionInit) => {
+    const handleOffer = useCallback(async (offer: RTCSessionDescriptionInit) => {
         if (!peerConnection.current) createPeerConnection();
         const pc = peerConnection.current!;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
 
-        if (roomName) {
-            supabase.channel(roomName).send({
+        if (roomNameRef.current) {
+            supabase.channel(roomNameRef.current).send({
                 type: "broadcast",
                 event: "answer",
                 payload: answer,
             });
         }
-    };
+    }, [createPeerConnection]);
 
-    const handleAnswer = async (answer: RTCSessionDescriptionInit) => {
+    const handleAnswer = useCallback(async (answer: RTCSessionDescriptionInit) => {
         if (peerConnection.current) {
             await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
         }
-    };
+    }, []);
 
-    const handleIceCandidate = async (candidate: RTCIceCandidateInit) => {
+    const handleIceCandidate = useCallback(async (candidate: RTCIceCandidateInit) => {
         if (peerConnection.current) {
             await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
         }
-    };
+    }, []);
 
     useEffect(() => {
         if (!roomName) return;
+        roomNameRef.current = roomName;
+        isInitiatorRef.current = isInitiator;
 
         const channel = supabase.channel(roomName);
 
         channel
             .on("broadcast", { event: "offer" }, ({ payload }) => {
-                if (!isInitiator) handleOffer(payload);
+                if (!isInitiatorRef.current) handleOffer(payload);
             })
             .on("broadcast", { event: "answer" }, ({ payload }) => {
-                if (isInitiator) handleAnswer(payload);
+                if (isInitiatorRef.current) handleAnswer(payload);
             })
             .on("broadcast", { event: "ice-candidate" }, ({ payload }) => {
                 handleIceCandidate(payload);
@@ -113,11 +117,13 @@ export const useWebRTC = ({ localStream, onRemoteStream, onMessage, onConnection
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [roomName, isInitiator]);
+    }, [roomName, isInitiator, handleOffer, handleAnswer, handleIceCandidate]);
 
     const startConnection = async (room: string, isOffer: boolean) => {
         setRoomName(room);
         setIsInitiator(isOffer);
+        roomNameRef.current = room;
+        isInitiatorRef.current = isOffer;
 
         const pc = createPeerConnection();
 
